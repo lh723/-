@@ -1,0 +1,219 @@
+#include<stdio.h>
+#include<string.h>
+#include<stdlib.h>
+#include<windows.h>
+#include<conio.h>
+
+char *menu[]={
+	"[A] 输入链表",
+	"[B] 输出链表",
+	"[C] 链表录入文件",
+	"[D] 文件读入链表",
+	"[E] 搜素字符串",
+	"[F] 退出",
+};
+//显示菜单页，实现高亮部分 
+void showdate(int line){
+	int i;
+	for(i=0;i<6;i++){
+		if(i==line){
+			//实现高亮 
+			SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),BACKGROUND_INTENSITY);
+		}else if(i==line+1){
+			//使高亮部分恢复正常 
+			SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY);
+		}
+		puts(menu[i]);
+	}
+	//退出时使高亮恢复正常 
+	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY);
+}
+//获取按键，控制菜单移动 
+int startup(int line){
+	int i;
+	line=0;
+	char c;
+	showdate(line);
+	while(1){
+		//获取按键 
+		if(kbhit()){
+			c=getch();
+			if((c>='a'&&c<='f')||(c>='A'&&c<='F')){
+				switch(c){
+					case 'a':
+					case 'A':
+						line=0;
+						break;
+					case 'b':
+					case 'B':
+						line=1;
+						break;
+					case 'c':
+					case 'C':
+						line=2;
+						break;
+					case 'd':
+					case 'D':
+						line=3;
+						break;
+					case 'e':
+					case 'E':
+						line=4;
+						break;
+					case 'f':
+					case 'F':
+						line=5;
+						break;
+					default :break;					
+					}
+				}
+				if(GetAsyncKeyState(VK_UP)){
+					line=(line+5)%6;
+				}
+				if(GetAsyncKeyState(VK_DOWN)){
+					line=(line+1)%6;
+				}
+				//\r表示回车 
+				if(c=='\r'){
+					return line;
+				}
+				Sleep(100);//界面睡眠，防止移动过快 
+				system("cls");
+				showdate(line);
+			}
+	}
+	
+	return line;
+}
+
+typedef struct _node{
+	char str[100];
+	struct _node *next;
+}Node;
+
+//输入函数 
+Node *get(Node *head){
+	char str1[100];
+	while(1){
+		gets(str1);
+		if(strlen(str1)==0){
+			break;
+		}
+		Node *p=(Node*)malloc(sizeof(Node));
+		strcpy(p->str,str1);//将str1赋值给p->str 
+		p->next =NULL;
+		Node *last=head;
+		if(last){
+			while(last->next ){
+				last=last->next;
+			}
+			last->next=p;
+		}else{
+			head=p;
+		}
+	}
+	return head;
+}
+ 
+//显示函数 
+Node *ret(Node *head){
+	Node *last=head;
+	while(last){//遍历输出字符串 
+		printf("%s\n",last->str);
+		last=last->next ;
+	}
+	return head;
+}
+
+//查询函数
+void *search(Node *head,char *str2){
+	int i=-1;
+	Node *last=head;
+	while(last){
+//若链表中有str2则输出该块链表的值
+		if(strstr(last->str ,str2)){
+			printf("%s\n",last->str );
+		}
+		last=last->next ;
+	}
+	return head;
+}
+//保存入文件函数
+Node *filewrite(Node *head){
+	FILE *file;
+	Node *last=head;
+	file=fopen("data.txt","w");//打开文件进行写入 
+	if(file==NULL){
+		printf("打开失败。");
+		exit(1);
+	}else{
+		while(last){
+			fprintf(file,last->str );//写入文件 
+			fprintf(file,"\n");
+			last=last->next;
+		}
+	}
+	fclose(file);
+} 
+//添加链表函数
+Node *addition(Node *head){
+	FILE *adf;
+	char str1[100];
+	adf=fopen("get.txt","r");//打开文件，进行阅读 
+	if(adf==NULL){
+		printf("打开失败！");
+		exit(1);
+	}else{
+		while(!feof(adf)){
+			fscanf(adf,"%s",str1);
+			Node *p=(Node*)malloc(sizeof(Node));
+			strcpy(p->str ,str1);
+			p->next =NULL;
+			Node *last=head;
+			if(last){
+				while(last->next){
+					last=last->next ;
+				}
+				last->next =p;
+			}else{
+				head=p;
+			}
+		}
+	}
+	fclose(adf);
+	return head;
+} 
+ 
+int main(){
+	char str1[100]; 
+	Node *head=NULL;
+	int line=0;
+	
+	while(1){
+			line=startup(line);
+			switch(line){
+			case 0:
+				printf("input new:\n");
+				head=get(head);
+				break;
+			case 1:
+				ret(head);
+				break;
+			case 2:
+				filewrite(head);
+				break;
+			case 3:
+				head=addition(head);
+				break;
+			case 4:
+				search(head,"asd");
+				break;
+			case 5:
+				exit(0);
+		}
+		printf("输入任意键继续--------"); 
+		getch();
+		system("cls");
+	}
+	return 0;
+}
