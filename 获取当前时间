@@ -1,0 +1,31 @@
+#include<stdio.h>
+#include<time.h>
+#include<stdlib.h>
+typedef struct  time_day{
+	int tm_sec;
+	int tm_min;
+	int tm_hour;
+	int tm_mday;
+	int tm_mon;
+	int tm_year;
+}tm;//定义存放时间数据的结构体 
+
+int main(){
+	time_t t;
+	time(&t);//返回从1970年1月1日0时0分0秒至今的秒数
+	tm *nowtime;
+	printf("time:%d\n",t);//输出从1970-0-0-0-0-0至今的秒数 
+	
+	char *s;
+	s=ctime(&t);
+	printf("time:%s\n",s);//中国时间，但顺序有些难懂 
+	
+	nowtime =localtime(&t);//获取想要的时刻 
+	printf("year：%d ",1900+nowtime->tm_year );//tm_year为今年与1900年相差年份 
+	printf("mon:%d ",nowtime->tm_mon +1);//求月数要+1 
+	printf("day:%d ",nowtime->tm_mday );
+	printf("hour:%d ",nowtime->tm_hour );
+	printf("min:%d ",nowtime->tm_min );
+	printf("sec:%d ",nowtime->tm_sec );
+	return 0;
+}
