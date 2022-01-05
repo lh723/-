@@ -1,0 +1,148 @@
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#include<conio.h>
+#include<Windows.h>
+struct Game_data{
+	char username[15];
+	char date[20];
+	char mode[10];
+	int bulletnumber;
+	int time;
+	int game_score;
+}data;
+
+void gotoxy(int x,int y){
+	COORD c;
+	c.X =x;
+	c.Y =y;
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE),c);
+}
+
+void create_file(){
+	FILE *fp;
+	if((fp=fopen("user.txt","r"))==NULL){//判断有无user文件，没有则创建 
+		if((fp=fopen("user.txt","w+"))==NULL){
+			gotoxy(20,40); 
+			printf("创建文本失败");
+		}
+	}
+	fclose(fp);
+}
+
+
+typedef struct the_users{
+	char id[15];
+	char psw[20];
+}user;
+
+
+void registers(){//注册函数 
+	user a,b;
+	FILE *fp;
+	fp=fopen("user.txt","r");
+	fread(&b,sizeof(user),1,fp);//读入结构字符块到b，1表读取次数
+	gotoxy(10,10); 
+	printf("请输入账号：");
+	scanf("%s",a.id );
+	gotoxy(10,12);//读入字符串放在a 
+	while(1){
+		if(strcmp(a.id ,b.id )){//判断id是否相等 
+			if(!feof(fp)){
+				fread(&b,sizeof(user),1,fp);//若一直不相等，则读到文本完 
+			}else{
+				break;
+			}
+		}else{//如果账号存在则退出注册页面 
+			gotoxy(10,14); 
+			printf("该用户名已存在");
+			fclose(fp);
+			gotoxy(10,16); 
+			printf("按任意键继续");
+			getch();
+			system("cls"); 
+			main();
+		}
+	}
+	//不存在则创建账号 
+	printf("请输入密码：");
+	scanf("%s",a.psw );
+	fp=fopen("user.txt","a");
+	fwrite(&a,sizeof(user),1,fp);
+	gotoxy(10,14); 
+	printf("创建成功，去登录吧！");
+	fclose(fp);
+	main();
+}
+
+//登录函数 
+void login(){
+	user a,b;
+	FILE *fp;
+	fp=fopen("user.txt","r");
+	fread(&b,sizeof(user),1,fp);//读取fp的结构块字符串 
+	gotoxy(10,10);
+	printf("请输入账号：");
+	scanf("%s",a.id );
+	gotoxy(10,12);
+	while(1){
+		if(strcmp(a.id ,b.id )==0){//判断a，b是否相等 
+			break;
+		}else{
+			if(!feof(fp)){
+				fread(&b,sizeof(user),1,fp);
+			}else{
+				gotoxy(10,14); 
+				printf("该用户名不存在，请重新登录");
+				fclose(fp);
+				gotoxy(10,16); 
+				printf("输入任意键继续");
+				getch();
+				system("cls"); 
+				main();
+			}
+		}
+	} 
+	//若账号存在则输入密码 
+	printf("请输入密码：");
+	scanf("%s",a.psw );
+	if(strcmp(a.psw ,b.psw )==0){
+		gotoxy(10,14); 
+		printf("登录成功，欢迎进入游戏！");
+		fclose(fp);
+	}else{
+		gotoxy(10,140); 
+		printf("密码错误");
+		fclose(fp);
+		gotoxy(10,16); 
+		printf("按任意键继续");
+		getch();
+		system("cls");
+	}
+	
+}
+
+int main(){
+	create_file();
+	gotoxy(0,0);
+	int i;
+	printf("欢迎！");
+	gotoxy(0,4);
+	printf("注册按1，登录按2:");
+	scanf("%d",&i);
+	Sleep(1000);
+	system("cls");
+	switch(i){
+		case 1:
+			registers();
+			break;
+		case 2:
+			login();
+			break;
+		default:
+			break;
+			
+			
+	} 
+	return 0;
+}
