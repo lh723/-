@@ -1,0 +1,1025 @@
+#include<stdio.h>
+#include<windows.h>
+#include<time.h>
+#include<conio.h>
+#include<stdlib.h>
+#define BULLET 5//子弹数 
+#define ENEMY 20//敌机最多数量 
+#define HIGH 20//屏幕高度 
+#define WIDTH 30//屏幕长度 
+#define LENGTH 20
+
+typedef struct Game_data{
+	char username[20];
+	char date[20];
+	char mode[20];
+	char bulletnumber[20];
+	char time[20];
+	char game_score[20];
+}Data;//游戏数据，用于保存到文件中 
+
+typedef struct game_data{
+	char username[20];
+	char date[20];
+	char mode[20];
+	char bulletnumber[20];
+	char time[20];
+	char game_score[20];
+	struct game_data *next;
+}Data_game;//游戏数据，便于调用历史数据 
+
+typedef struct user_data{
+	char mode[20];
+	char mon[20];
+	char day[20];
+	char game_score[20];
+}Udata;//玩家数据，用于保存到文件中，利于排行榜提取 
+
+struct User_data{
+	char name[20];
+	int game_score;
+}user_list[10];//用户结构体数组，用于排行榜 
+
+typedef struct the_users{
+	char id[15];
+	char psw[20];
+}user;//玩家账号密码保存 
+
+
+typedef struct  time_day{
+	int tm_sec;
+	int tm_min;
+	int tm_hour;
+	int tm_mday;
+	int tm_mon;
+	int tm_year;
+}tm;//定义存放时间数据的结构体 
+
+//全局变量定义↓ ↓ 
+int game_time; //游戏总时长 
+int position_x,position_y;//飞机位置
+int bullet_x[BULLET],bullet_y[BULLET];//子弹位置
+int shoot[BULLET];//子弹的状态 
+int enemy_x[ENEMY],enemy_y[ENEMY];//敌机位置
+int Enemy[ENEMY];//判断敌机的状态 
+int statue;
+int score; 
+int maxspeed;
+int handlejudge=0;
+int difficule=0;
+long long tim;//进入游戏的时间，为了算游戏秒数 
+int consume_time; 
+char Uname[LENGTH];//存放当前游戏玩家名字 
+char Timenow[LENGTH];//存放进入游戏时时间 
+char Difficulty[LENGTH];//存放游戏难度 
+int Bullet_number;//发射子弹数量 
+char Mon[LENGTH];//保存月份 
+char Day[LENGTH];//保存日期 
+
+//函数定义↓ ↓ 
+void gotoxy(int x,int y);//光标移动  
+void show();//显示页面 
+void welcometogame();//主菜单页 
+void explation();//游戏介绍 
+void gametip();//游戏小提示 
+void endgame();//游戏结束页面 
+void difficulties(); //控制难度函数
+int color(int c);//颜色函数 
+void withoutinput();//非玩家输入 
+void withinput();//玩家输入 
+void startup();//初始化函数 
+void HideCursor();//隐藏光标  
+int move(int choice,char **menu);//菜单移动 
+void showdate(int choice,int line,char **menu);//显示菜单
+int  countdown();//倒计时函数 
+void find_list();//排行榜界面
+void list_show();//排行榜显示 
+void list_queue();//结构体数组排列 
+void user_data_search();//查看个人数据 
+void showgamedata();//显示历史数据 
+void create_file(char *filename); //创建文件函数 
+void registers();//注册函数 
+void login();//登录函数
+void gettime();//获取进入游戏时间函数 
+Data_game *putgamefile(Data_game *head);//将游戏数据输入文件函数 
+void getgamefile();//获取本次游戏数据并保存 
+void putuserfile(int judge,char *diff);//获取用户数据 
+void getuserfile();//获取本次用户数据并保存  
+
+
+//颜色函数 
+int color(int c){
+	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),c);
+	return 0;
+}
+
+
+//光标移动函数 
+void gotoxy(int x,int y){
+	COORD c;
+	c.X =x;
+	c.Y =y;
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE),c);
+}
+
+void show(){
+	int i,j,t;
+	char emp[100];
+	int judge=1;
+	//描绘屏幕 
+	for(i=0;i<HIGH;i++){
+		for(j=0;j<WIDTH+1;j++){
+			if(statue==0)
+				break;
+			//描绘墙壁，飞机，子弹，敌机 
+			if((i==position_x)&&(j==position_y+1)){
+				gotoxy(j,i);
+				printf("-");
+			}else if((j==WIDTH-1)||(j==0)){
+				gotoxy(j,i);
+				printf("-");
+			}else if((i==HIGH-1)||(i==0)){
+				gotoxy(j,i);
+				printf("-");
+			}else {
+				gotoxy(j,i);
+				printf(" ");
+			}
+			if((i==position_x)&&(j==position_y)){
+				gotoxy(j-1,i);
+				printf("-");
+				gotoxy(j,i);
+				printf("!");
+				gotoxy(j+1,i);
+				printf("-");
+			}
+			//遍历然后输出子弹 
+			for(t=0;t<BULLET;t++){
+				if((bullet_x[t]==i)&&(bullet_y[t]==j)){
+					gotoxy(j,i);
+					printf("*");
+				}
+			}
+			//遍历然后输出敌机 
+			for(t=0;t<ENEMY;t++){
+				if((enemy_x[t]==i)&&(enemy_y[t]==j)){
+					gotoxy(j,i);
+					printf("@");
+				}
+			}
+		}
+	}
+	
+
+	//判断飞机是否相撞
+	for(i=0;i<ENEMY;i++){
+		if((position_x==enemy_x[i])&&(position_y==enemy_y[i]||position_y-1==enemy_y[i]||position_y+1==enemy_y[i])){
+			statue=0;
+			break;
+		}
+	}
+	//屏幕下方显示得分情况 
+	if(statue==1){
+		gotoxy(0,i);
+		printf("得分为：%d",score);
+	}
+}
+
+//主菜单页 
+void welcometogame(){
+	char *welcome[]={
+	"**************飞机大战**************",
+	"             [A]开始游戏            ",
+	"             [B]游戏介绍            ", 
+	"             [C]排行榜              ", 
+	"             [D]历史数据            ",
+	"             [E]个人数据            ", 
+	"             [F]退出游戏            ",
+	"************************************"
+	};
+	gettime();//获取进入菜单的时间 
+	int dif=0;//获取返回值，实现功能 
+	dif=move(8,welcome);
+	switch(dif){
+		case 1:
+			system("cls");
+			difficulties();
+			show();
+			startup();
+			break;
+		case 2:
+			system("cls");
+			explation();
+			break;
+		case 3:
+			system("cls");
+			find_list();
+			break;
+		case 4:
+			system("cls");
+			Data_game *head=NULL;
+			head=putgamefile(head);
+			showgamedata(head);
+			break; 
+		case 5:
+			system("cls");
+			user_data_search();
+			break;
+		case 6:
+			exit(0);
+			break;
+	} 
+}
+
+//游戏介绍页 
+void explation(){
+	int i,j;
+	system("cls");
+	color(3); 
+	gotoxy(0,0); 
+	color(3);
+	gotoxy(20,5);
+	printf("1.通过↑↓←→键控制飞机移动空格发射子弹"); 
+	gotoxy(20,7);
+	printf("2.进入游戏后选择无尽模式与限时模式"); 
+	color(5);
+	gotoxy(22,9);
+	printf("无尽：无时间限制直到游戏结束"); 
+	gotoxy(22,11);
+	printf("限时：只有60秒的时间"); 
+	color(3);
+	gotoxy(20,13);
+	printf("3.当得到的分越多，敌机移动速度会越快"); 
+	gotoxy(20,15);
+	printf("4.消灭一次敌机记一分"); 
+	gotoxy(20,17);
+	printf("5.当敌机与飞机发生碰撞则游戏结束");
+	gotoxy(20,19);
+	printf("6.游戏过程中按'Esc'键退出游戏");
+	gotoxy(20,23);
+	printf("输入任意键返回主菜单");
+	getch();
+	system("cls");
+	welcometogame();
+}
+
+//游戏小提示 
+void gametip(){
+	color(9);
+	gotoxy(50,10);
+	printf("用↑↓←→键控制飞机移动");
+	gotoxy(50,12);
+	printf("敌机的形态为@");
+	gotoxy(50,14);
+	printf("分数：%d\n",score); 
+	if(difficule==1){
+		gotoxy(50,16);
+		printf("时间：%2d",countdown());
+	}
+}
+
+//游戏结束界面 
+void endgame(){
+	time_t t;
+	time(&t);
+	consume_time=t-tim;//游戏结束时间，计算历时 
+	int m;
+	getgamefile();//存放游戏数据 
+	getuserfile();//获取本次用户数据并保存 
+	color(4);
+	gotoxy(15,14);
+	printf("游戏结束！");
+	gotoxy(15,16);
+	printf("本次得分为%d 花费时间为:%ds",score,consume_time);
+	gotoxy(10,18);
+	system("pause");
+	Sleep(500);
+	system("cls");
+	char *end[]={
+	"************游戏失败************",
+	"            重新开始            ",
+	"            返回菜单           ",
+	"            结束游戏            ",
+	"********************************" 
+	};
+	m=move(5,end);
+	switch(m){
+		case 1:
+			system("cls");
+			show();
+			startup();
+			break;
+		case 2:
+			system("cls");
+			welcometogame();
+			break;
+		case 3:
+			exit(0);
+			break;
+		default:
+			gotoxy(10,20); 
+			printf("请输入任意键退出游戏");
+			getch();
+			exit(0);
+			break;
+	}
+	
+}
+
+void showdate(int choice,int line,char **menu){//菜单输出函数 
+	int i;
+	for(i=0;i<choice;i++){
+		gotoxy(20,6+2*i);
+		if(i==line){
+			SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),BACKGROUND_INTENSITY);
+		}
+		else{
+			SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY);
+		}
+		puts(menu[i]);//输出菜单 
+	}
+	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY);
+	HideCursor();
+}
+
+//移动菜单函数 
+int move(int choice,char **menu){
+	int line=1;//使菜单只想第一个 
+	showdate(choice,line,menu);
+	while(1){
+		if(kbhit()){
+			char c=getch();
+			//用字母控制菜单 
+			if(c>='a'&&c<='z'){
+				if(c-'a'>=1&&c-'a'<=choice-2){
+					line=c-'a'+1;
+				}
+			}else if(c>='A'&&c<='Z'){
+				if(c-'A'>=1&&c-'A'<=choice-2){
+					line=c-'A'+1;
+				}
+			}
+			//用方向键控制菜单 
+			if(GetAsyncKeyState(VK_UP)){
+				line--;
+				line=line<1?choice-2:line;
+			}
+			if(GetAsyncKeyState(VK_DOWN)){
+				line++;
+				line=line>(choice-2)?1:line;
+			}
+			if(c=='\r'){
+				return line;
+			}
+			Sleep(200);
+			gotoxy(0,0);
+			showdate(choice,line,menu);
+		}
+	}
+}
+
+
+void difficulties(){
+	int dif;
+	char *mode[]={
+	"************************************",
+	"            [A]无尽模式             ",
+	"            [B]限时模式             ",
+	"************************************"};
+	dif=move(4,mode);
+	switch(dif){
+		case 1:
+			system("cls");
+			difficule=0;
+			char dif[20]="Unless_Mode";
+			strcpy(Difficulty,dif);
+//			startup();
+			show();
+			break;
+		case 2:
+			difficule=1;
+			char diff[20]="Time_Limit_Mode";
+			strcpy(Difficulty,diff);
+			system("cls");
+			show();
+			break;
+	} 
+}
+
+//子弹，敌机移动函数 
+void withoutinput(){
+	int i,j;
+	for(i=0;i<BULLET;i++){
+		if(shoot[i]==1){
+			if(bullet_x[i]==0){//当子弹离开界面，重新定义 
+				shoot[i]=0;
+				bullet_x[i]=-1;
+			}else{
+				bullet_x[i]--;
+			}
+			for(j=0;j<ENEMY;j++){//当子弹射中敌机，重新定义 
+				if((bullet_x[i]==enemy_x[j]||bullet_x[i]==enemy_x[j]-1)&&(bullet_y[i]==enemy_y[j])){
+					score++;
+					bullet_x[i]=-1;
+					shoot[i]=0;
+					Enemy[j]=0;
+					enemy_x[j]=-1;
+				}
+			}
+		}
+	}
+	
+	
+	static int speed;
+	int change_speed=2+180/(score+10);
+	if(speed<change_speed){
+		speed++;
+	}//控制敌机下落速度 
+	if(speed==change_speed){
+		for(i=0;i<ENEMY;i++){
+			if(Enemy[i]==1){
+				if(enemy_x[i]<HIGH){
+					enemy_x[i]++;
+				}
+				if(enemy_x[i]==HIGH){
+					Enemy[i]=0;
+					enemy_x[i]=-1;
+				}
+			}
+		}
+		for(i=0;i<ENEMY;i++){
+			if(Enemy[i]==0){
+				Enemy[i]=1;
+				enemy_x[i]=0;
+				enemy_y[i]=2+rand()%WIDTH-2;
+				break;
+			}
+		}
+		speed=0;
+	}
+}
+
+
+//读取键盘使飞机移动函数 
+void withinput(){
+	char c;
+	int k;
+	if(kbhit()){
+		c=getch();
+		if(GetAsyncKeyState(VK_UP)){
+				if(position_x>1){
+					position_x--;
+				}
+			}
+		if(GetAsyncKeyState(VK_DOWN)){
+			if(position_x<HIGH-1){
+				position_x++;
+			}
+		}
+		if(GetAsyncKeyState(VK_RIGHT)){
+				if(position_y<WIDTH-1){
+					position_y++;
+				}
+		}
+		if(GetAsyncKeyState(VK_LEFT)){
+				if(position_y>1){
+					position_y--;
+				}
+		}
+		if(GetAsyncKeyState(VK_SPACE)){
+				for(k=0;k<BULLET;k++){
+					if(shoot[k]==0){
+						shoot[k]=1;
+						bullet_x[k]=position_x-1;
+						bullet_y[k]=position_y;
+						Bullet_number++;
+						break;
+					}
+				}
+		}
+		if(GetAsyncKeyState(VK_ESCAPE)) {
+			exit(0);
+		}
+//		Sleep(10);
+	}
+}
+
+int countdown(){//实现倒计时 
+	time_t t;
+	time(&t);//返回从1970年1月1日0时0分0秒至今的秒数 
+	int count=60;
+	int limit;
+	limit=count-(t-tim);//获取剩余时间，实现倒计时 
+	if(limit==0){
+		statue=0;
+	}
+	return limit;
+} 
+
+
+
+//隐藏光标 
+void HideCursor(){
+	CONSOLE_CURSOR_INFO cursor;
+	cursor.bVisible =FALSE;
+	cursor.dwSize =sizeof(cursor);
+	HANDLE handle=GetStdHandle(STD_OUTPUT_HANDLE);
+	SetConsoleCursorInfo(handle,&cursor);
+}
+
+
+//数据初始化 
+void startup(){
+	time_t t;
+	time(&t);
+	tim=t;//获取进入游戏时间，实现倒计时 
+	position_x=HIGH/2;
+	position_y=WIDTH/2;//初始化飞机位置 
+	int i;
+	//初始化子弹 
+	for(i=0;i<BULLET;i++){
+		bullet_x[i]=-1;
+		bullet_y[i]=position_y;
+		shoot[i]=0;
+	}
+	//初始化敌机位置 
+	for(i=0;i<ENEMY;i++){
+		Enemy[i]=0;
+		enemy_x[i]=-1;
+		enemy_y[i]=-1;
+	}
+	
+	score=0;
+	
+	statue=1;//飞机活着为1，死了为0 
+	
+	Bullet_number=0;//发射子弹数 
+	HideCursor();
+}
+
+
+
+//查找排行榜显示
+void find_list(){
+	int n;
+	int judge;
+	char *list[]={ 
+	"*************排行榜查询***********",
+	"                月榜              ",
+	"                日榜              ",
+	"**********************************"};
+	n=move(4,list);
+	switch(n){
+		case 1:{
+			judge=0;
+			system("cls");
+			list_show(judge);
+
+			break;
+		}
+		case 2:{
+			judge=1;
+			system("cls");
+			list_show(judge);
+			
+			break;
+		}
+	}
+} 
+
+//使结构体数组初始化 
+void list_startup(){
+	int i;
+	char name_start[10]="Nobody";
+	for(i=0;i<10;i++){
+		strcpy(user_list[i].name ,name_start);
+		user_list[i].game_score =0;
+	}
+}
+
+void list_show(int judge){
+	int i,j=0;
+	list_startup();//初始化结构体数组 
+	putuserfile(judge,"Unless_Mode");//为结构体数组赋值 
+	list_queue(); //调用写入 
+	color(11);
+	if(judge==0){
+		printf("周榜\n\n");
+	}else{
+		printf("日榜\n\n");
+	}
+	printf("无尽模式\n");
+	for(i=0;i<10;i++){
+		printf("No %d 玩家：%s 分数：%d\n",i+1,user_list[i].name ,user_list[i].game_score );
+	}
+	list_startup();//初始化结构体数组
+	putuserfile(judge,"Time_Limit_Mode");//为结构体数组赋值
+	list_queue();//调用写入
+	printf("\n限时模式\n");
+	for(i=0;i<10;i++){
+		printf("No %d 玩家：%s 分数：%d\n",i+1,user_list[i].name ,user_list[i].game_score );
+	}
+	system("pause");
+	Sleep(500);
+	system("cls");
+	welcometogame();
+}
+
+void list_queue(){//排序 
+	int i,j;
+	int max;
+	char user_name[10];
+	for(i=0;i<10;i++){//冒泡排序 
+		max=user_list[i].game_score;
+		strcpy(user_name,user_list[i].name );
+		for(j=i+1;j<10;j++){
+			if(max<user_list[j].game_score ){//max<game_score 
+//				strcpy(store,user_list[j].game_score );
+				max=user_list[j].game_score ;
+				user_list[j].game_score =user_list[i].game_score ;
+				user_list[i].game_score =max;
+				strcpy(user_name,user_list[j].name );
+				strcpy(user_list[j].name ,user_list[i].name  );
+				strcpy(user_list[i].name  ,user_name);
+			}
+		}
+	}
+} 
+
+void user_data_search(){//输出用户数据 
+	int i=0;
+	Udata b;
+	char name[20];
+	char tail[10]=".txt";
+	gotoxy(10,6);
+	printf("输入你要找的用户名:");
+	scanf("%s",name);
+	strcat(name,tail);//使输入的用户名生成文件名 
+	FILE *fp;
+	fp=fopen(name,"rb");
+	if(fp==NULL){
+		fclose(fp);
+		gotoxy(10,8);
+		printf("该用户名不存在！");
+		gotoxy(10,10);
+		printf("请输入任意键返回菜单页：");
+		getch();
+		Sleep(500);
+		system("cls") ;
+		welcometogame();
+	}else{
+		system("cls");
+		while(!feof(fp)){//读出数据 
+			if(fread(&b,sizeof(Udata),1,fp)){//用fread直接读会多出一个结点，加个判断 
+				color(14);
+				printf("模式：%s 日期：%s 得分：%s\n",b.mode ,b.day ,b.game_score );
+			}
+		}
+	}
+	fclose(fp);
+	printf("按任意键回主菜单：");
+	getch();
+	system("cls");
+	welcometogame(); 
+}
+
+void showgamedata(Data_game *head){//输出历史数据 
+	int i=0;
+	Data_game *last=head;
+	while(last){
+		color(10);
+		printf("玩家：%s 日期：%s 模式：%s 子弹数：%s 时间：%s 得分：%s\n",last->username ,last->date ,last->mode ,last->bulletnumber ,last->time ,last->game_score );
+		last=last->next ;
+	}
+	printf("按任意键返回菜单：");
+	getch();
+	Sleep(500);
+	system("cls");
+	welcometogame();
+		
+} 
+
+
+
+//创建二进制文本 
+void create_file(char *filename){
+	FILE *fp;
+	if((fp=fopen(filename,"rb"))==NULL){//判断有无user文件，没有则创建 
+		if((fp=fopen(filename,"wb+"))==NULL){
+			gotoxy(20,40); 
+			printf("创建文本失败");
+		}
+	}
+	fclose(fp);
+} //创造文件 
+
+//注册函数 
+void registers(){
+	user a,b;//用a b存放user结构体数据，便于添加到文件 
+	FILE *fp;
+	fp=fopen("user.txt","rb");//打开二进制文本 
+	fread(&b,sizeof(user),1,fp);
+	gotoxy(20,6);
+	printf("              注册页面              ") ; 
+	gotoxy(10,10);
+	printf("请输入账号：");
+	scanf("%s",a.id );
+	while(1){//遍历文件看是否有一样的用户名 
+		if(strcmp(a.id ,b.id )){
+			if(!feof(fp)){
+				fread(&b,sizeof(user),1,fp);
+			}else{
+				break;
+			}
+		}else{
+			gotoxy(10,12);
+			printf("该用户名已存在。");
+			gotoxy(10,14);
+			printf("请回去登录吧！");
+			gotoxy(10,16);
+			printf("按任意键回登录页面");
+			getch();
+			fclose(fp);
+			system("cls");
+			main(); 
+		}
+	}
+	//如果用户名不存在，创建新用户名 
+	gotoxy(10,12);
+	printf("输入密码：");
+	scanf("%s",a.psw );
+	fp=fopen("user.txt","ab");
+	fwrite(&a,sizeof(user),1,fp);
+	fclose(fp);
+	gotoxy(10,14);
+	printf("账号创建成功，快去登录吧！");
+	gotoxy(10,16);
+	system("pause");
+	create_file("game.txt");
+	system("cls");
+	main();
+	
+}
+
+//登录函数 
+void login(){
+	user a,b;
+	char tail[10]=".txt";
+	FILE *fp;
+	fp=fopen("user.txt","rb");
+	fread(&b,sizeof(user),1,fp);
+	gotoxy(20,6);
+	printf("              登录页面              ") ; 
+	gotoxy(10,10);
+	gotoxy(10,10);
+	printf("账号：");
+	scanf("%s",a.id  );
+	while(1){//遍历文件读取用户名 
+		if(strcmp(a.id,b.id )){
+			if(!feof(fp)){
+				fread(&b,sizeof(user),1,fp);
+			}else{
+				gotoxy(10,12);
+				printf("改用户名不存在，请重新注册：");
+				gotoxy(10,14);
+				printf("按任意键回到登录页面：");
+				fclose(fp);
+				getch();
+				system("cls");
+				main(); 
+			}
+		}else{
+			break;
+		}
+	}
+	//读取相应用户名和密码，判断密码是否正确 
+	gotoxy(10,12);
+	printf("密码：");
+	scanf("%s",a.psw );
+	if(strcmp(a.psw ,b.psw )){
+		gotoxy(10,14);
+		printf("密码错误！输入任意键返回登录页面：");
+		getch();
+		fclose(fp);
+		system("cls");
+		main();
+	} else{
+		sprintf(Uname,"%s",a.id );
+		strcat(a.id,tail);
+		create_file(a.id);
+		fclose(fp);
+		system("cls");
+		startup();
+		welcometogame();
+	}
+	
+}
+
+//获取进入游戏时间函数 
+void gettime(){
+	time_t t;
+	time(&t);
+	tm *timenow;
+	timenow = localtime(&t);
+	sprintf(Timenow,"%d-%d-%d.%d:%2d:%2d",1900+timenow->tm_year ,1+timenow->tm_mon ,timenow->tm_mday ,timenow->tm_hour ,timenow->tm_min ,timenow->tm_sec );
+	sprintf(Mon,"%d-%d",1900+timenow->tm_year ,1+timenow->tm_mon );
+	sprintf(Day,"%d-%d-%d",1900+timenow->tm_year ,1+timenow->tm_mon ,timenow->tm_mday );
+}
+
+//获取本次游戏数据并保存到文件中 
+void getgamefile(){
+	Data p;
+	strcpy(p.username ,Uname);
+	strcpy(p.date ,Timenow);
+	strcpy(p.mode ,Difficulty);
+	sprintf(p.bulletnumber ,"%d",Bullet_number);
+	sprintf(p.time  ,"%d",consume_time);
+	sprintf(p.game_score  ,"%d",score);
+	FILE *fp;
+	fp=fopen("game.txt","ab");
+	if(fp==NULL){
+		gotoxy(10,10);
+		printf("数据保存失败！"); 
+	}else{
+		fwrite(&p,sizeof(Data),1,fp);
+	}
+	fclose(fp);
+}
+
+//用链表获取文件中历史数据 
+Data_game *putgamefile(Data_game *head){
+	int i;
+	FILE *fp;
+	Data p;
+	fp=fopen("game.txt","rb");
+	if(fp==NULL){
+		fclose(fp);
+	}else{
+		while(!feof(fp)){
+			//读取链表并进行封装 
+			if(fread(&p,sizeof(Data),1,fp)){//用fread直接读会多出一个结点，加个判断 
+				Data_game *p2=(Data_game*)malloc(sizeof(Data_game));
+				strcpy(p2->username ,p.username );
+				strcpy(p2->date ,p.date );
+				strcpy(p2->mode ,p.mode );
+				strcpy(p2->bulletnumber,p.bulletnumber  );
+				strcpy(p2->time ,p.time  );
+				strcpy(p2->game_score ,p.game_score  );
+				p2->next =NULL;
+				Data_game *last=head;
+				if(last){
+					while(last->next ){
+						last=last->next ;
+					}
+					last->next=p2;
+				}else{
+					head=p2;
+				}
+			}
+		}
+	}
+	fclose(fp);
+	return head;
+}
+
+//获取用户数据
+void putuserfile(int judge,char *diff){
+	//juede=0 month judge=1 day
+	FILE *fp;
+	Data p;
+	user a;
+	int i=0;
+	fp=fopen("user.txt","rb");
+	if(fp==NULL){
+		fclose(fp);
+	}else{
+		while(!feof(fp)){
+			if(fread(&a,sizeof(user),1,fp)){//逐行读取用户名 用fread直接读会多出一个结点，加个判断 
+				char username[20]="Nobody";
+				strcpy(username,a.id );
+				char tail[5]=".txt";
+				strcat(username,tail);
+				FILE *file;
+				file=fopen(username,"rb");//打开用户名所在文件 
+				Udata b;
+				fread(&b,sizeof(Udata),1,file);//打开用户名所在文件 
+				int max=0;
+				if(judge==0){//找出对应模式，日期 ，读取最大的分数值 
+					if((strcmp(b.mon ,Mon)==0)&&(strcmp(b.mode ,diff)==0)){
+						max=atoi(b.game_score );
+					}else{
+						while(!feof(file)){
+							if(fread(&b,sizeof(Udata),1,file)){//用fread直接读会多出一个结点，加个判断 
+								if((strcmp(b.mon ,Mon)==0)&&(strcmp(b.mode ,diff)==0)){
+									max=atoi(b.game_score );
+									break;
+								}	
+							}
+						}
+					}
+				}else if(judge==1){
+					if((strcmp(b.day ,Day)==0)&&(strcmp(b.mode ,diff)==0)){
+						max=atoi(b.game_score );
+					}else{
+						while(!feof(file)){
+							if(fread(&b,sizeof(Udata),1,file)){//用fread直接读会多出一个结点，加个判断 
+								if((strcmp(b.day  ,Day)==0)&&(strcmp(b.mode ,diff)==0)){
+									max=atoi(b.game_score );
+									break;
+								}	
+							}
+						}
+					}
+				}
+				//找出文件中符合条件最大值的得分 
+				while(!feof(file)){
+					if(fread(&b,sizeof(Udata),1,file)){//用fread直接读会多出一个结点，加个判断 
+						if(judge==0){
+							if((strcmp(b.mon  ,Mon)==0)&&(strcmp(b.mode ,diff)==0)){
+								if(max<atoi(b.game_score )){
+									max=atoi(b.game_score );
+								}
+							}
+						}else if(judge==1){
+							if((strcmp(b.day ,Day)==0)&&(strcmp(b.mode ,diff)==0)){
+							    	if(max<atoi(b.game_score )){
+									    max=atoi(b.game_score );
+									}
+							}
+						}
+					}
+				}
+				fclose(file);
+				if(max!=0){
+					user_list[i].game_score =max;
+					strcpy(user_list[i].name,a.id );
+					i++;
+				}
+				 
+			}
+		}
+	}
+	fclose(fp);
+}
+
+
+//获取本次用户数据并保存
+void getuserfile(){
+	Udata p;
+	strcpy(p.mode ,Difficulty);
+	strcpy(p.mon  ,Mon);
+	strcpy(p.day  ,Day);
+	sprintf(p.game_score  ,"%d",score);
+	char tail[5]=".txt";
+	char filename[20];
+	strcpy(filename,Uname);
+	strcat(filename,tail);
+	FILE *fp;
+	fp=fopen(filename,"ab");
+	if(fp==NULL){
+		gotoxy(10,10);
+		printf("数据保存失败！"); 
+	}else{
+		fwrite(&p,sizeof(Udata),1,fp);//把数据写入文件 
+	}
+	fclose(fp);
+}
+
+
+int main(){
+	//初始化缓冲区 
+	char *register_login[]={
+	"************游戏登录系统************",
+	"              登录游戏              ",
+	"              注册账号              ",
+	"************************************" 
+	};
+	create_file("user.txt");//创建文件保存账号密码 
+	int choice=move(4,register_login);
+	system("mode con cols=100 lines=30");//初始化控制台高度长度 
+	switch(choice){
+		case 1:{
+			login();
+			break;
+		}
+		case 2:{
+			registers();
+			break;
+		}
+	}
+	while(1){
+		show();
+		gametip();
+		if(statue==0){
+			system("cls");
+			Sleep(300);
+			endgame();
+		}
+		withoutinput();
+		withinput();
+		gotoxy(0,0);
+		
+	}
+	
+	return 0;
+}
